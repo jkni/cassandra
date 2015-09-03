@@ -116,9 +116,15 @@ public class TemporalRow
             return localDeletionTime == NO_DELETION_TIME || (ttl != NO_TTL && now < localDeletionTime);
         }
 
-        public Cell cell(ColumnDefinition definition, CellPath cellPath)
+        public Cell cell(ColumnDefinition definition, CellPath cellPath, TemporalRow parent)
         {
-            return new BufferCell(definition, timestamp, ttl, localDeletionTime, value, cellPath);
+            /**
+             * This cells ts must be >= the views clustering timestamp to avoid masking previously tombstoned data.
+             */
+            long cellTimestamp = Math.max(timestamp, parent.viewClusteringTimestamp());
+
+
+            return new BufferCell(definition, cellTimestamp, ttl, localDeletionTime, value, cellPath);
         }
 
         public boolean equals(Object o)
@@ -419,7 +425,7 @@ public class TemporalRow
             TemporalCell cell = resolver.resolve(pathAndCells.getValue());
 
             if (cell != null)
-                value.add(cell.cell(definition, pathAndCells.getKey()));
+                value.add(cell.cell(definition, pathAndCells.getKey(), this));
         }
         return value;
     }
