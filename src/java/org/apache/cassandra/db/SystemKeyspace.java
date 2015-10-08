@@ -691,7 +691,6 @@ public final class SystemKeyspace
     {
         if (ep.equals(FBUtilities.getBroadcastAddress()))
         {
-            removeEndpoint(ep);
             return;
         }
 
@@ -755,6 +754,7 @@ public final class SystemKeyspace
     {
         String req = "DELETE FROM system.%s WHERE peer = ?";
         executeInternal(String.format(req, PEERS), ep);
+        forceBlockingFlush(PEERS);
     }
 
     /**
