@@ -1930,6 +1930,11 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         if (tokenMetadata.isMember(endpoint))
             logger.info("Node {} state jump to normal", endpoint);
 
+        if (tokens.isEmpty())
+            logger.error("Node {} is in state normal but it has no tokens, state: {}",
+                         endpoint,
+                         Gossiper.instance.getEndpointStateForEndpoint(endpoint));
+
         updatePeerInfo(endpoint);
         // Order Matters, TM.updateHostID() should be called before TM.updateNormalToken(), (see CASSANDRA-4300).
         UUID hostId = Gossiper.instance.getHostId(endpoint);
