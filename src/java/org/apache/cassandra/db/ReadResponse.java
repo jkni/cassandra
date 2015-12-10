@@ -380,7 +380,8 @@ public abstract class ReadResponse
             if (digest.hasRemaining())
                 return new DigestResponse(digest);
 
-            assert version == MessagingService.VERSION_30;
+            // See comment in serializedSize
+            assert version == MessagingService.VERSION_30 || version == MessagingService.VERSION_32;
             ByteBuffer data = ByteBufferUtil.readWithVIntLength(in);
             return new RemoteDataResponse(data);
         }
@@ -415,9 +416,10 @@ public abstract class ReadResponse
             long size = ByteBufferUtil.serializedSizeWithVIntLength(digest);
             if (!isDigest)
             {
-                // Note that we can only get there if version == 3.0, which is the current_version. When we'll change the
-                // version, we'll have to deserialize/re-serialize the data to be in the proper version.
-                assert version == MessagingService.VERSION_30;
+                // Note that we can only get there if version >= 3.0. Since there have not yet been changes
+                // relevant to this format in versions >= 3.0, we can leave this. Once we introduce changes,
+                //  we'll have to deserialize/re-serialize the data to be in the proper version.
+                assert version == MessagingService.VERSION_30 || version == MessagingService.VERSION_32;
                 ByteBuffer data = ((DataResponse)response).data;
                 size += ByteBufferUtil.serializedSizeWithVIntLength(data);
             }

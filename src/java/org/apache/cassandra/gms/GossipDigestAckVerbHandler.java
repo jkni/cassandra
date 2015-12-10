@@ -25,6 +25,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessageOut;
@@ -47,6 +48,13 @@ public class GossipDigestAckVerbHandler implements IVerbHandler<GossipDigestAck>
         }
 
         GossipDigestAck gDigestAckMessage = message.payload;
+        /* If the message is from a different cluster throw it away. */
+        if (gDigestAckMessage.clusterId != null && !gDigestAckMessage.clusterId.equals(DatabaseDescriptor.getClusterName()))
+        {
+            logger.warn("Cluster name mismatch from {} {}!={}", from, gDigestAckMessage.clusterId, DatabaseDescriptor.getClusterName());
+            return;
+        }
+
         List<GossipDigest> gDigestList = gDigestAckMessage.getGossipDigestList();
         Map<InetAddress, EndpointState> epStateMap = gDigestAckMessage.getEndpointStateMap();
         logger.trace("Received ack with {} digests and {} states", gDigestList.size(), epStateMap.size());
@@ -77,7 +85,8 @@ public class GossipDigestAckVerbHandler implements IVerbHandler<GossipDigestAck>
         }
 
         MessageOut<GossipDigestAck2> gDigestAck2Message = new MessageOut<GossipDigestAck2>(MessagingService.Verb.GOSSIP_DIGEST_ACK2,
-                                                                                           new GossipDigestAck2(deltaEpStateMap),
+                                                                                           new GossipDigestAck2(DatabaseDescriptor.getClusterName(),
+                                                                                                                deltaEpStateMap),
                                                                                            GossipDigestAck2.serializer);
         if (logger.isTraceEnabled())
             logger.trace("Sending a GossipDigestAck2Message to {}", from);

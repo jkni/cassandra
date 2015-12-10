@@ -74,8 +74,10 @@ public class SerializationsTest extends AbstractSerializationsTester
         Map<InetAddress, EndpointState> states = new HashMap<InetAddress, EndpointState>();
         states.put(InetAddress.getByName("127.0.0.1"), Statics.EndpointSt);
         states.put(InetAddress.getByName("127.0.0.2"), Statics.EndpointSt);
-        GossipDigestAck ack = new GossipDigestAck(Statics.Digests, states);
-        GossipDigestAck2 ack2 = new GossipDigestAck2(states);
+        GossipDigestAck ack = new GossipDigestAck("Not a real cluster name",
+                                                  Statics.Digests, states);
+        GossipDigestAck2 ack2 = new GossipDigestAck2("Not a real cluster name",
+                                                     states);
         GossipDigestSyn syn = new GossipDigestSyn("Not a real cluster name",
                                                   StorageService.instance.getTokenMetadata().partitioner.getClass().getCanonicalName(),
                                                   Statics.Digests);

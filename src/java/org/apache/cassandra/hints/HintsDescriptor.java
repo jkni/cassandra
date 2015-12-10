@@ -48,7 +48,8 @@ import static org.apache.cassandra.utils.FBUtilities.updateChecksumInt;
 final class HintsDescriptor
 {
     static final int VERSION_30 = 1;
-    static final int CURRENT_VERSION = VERSION_30;
+    static final int VERSION_32 = 2;
+    static final int CURRENT_VERSION = VERSION_32;
 
     static final Pattern pattern =
         Pattern.compile("^[a-fA-F0-9]{8}\\-[a-fA-F0-9]{4}\\-[a-fA-F0-9]{4}\\-[a-fA-F0-9]{4}\\-[a-fA-F0-9]{12}\\-(\\d+)\\-(\\d+)\\.hints$");
@@ -94,6 +95,8 @@ final class HintsDescriptor
         {
             case VERSION_30:
                 return MessagingService.VERSION_30;
+            case VERSION_32:
+                return MessagingService.VERSION_32;
             default:
                 throw new AssertionError();
         }

@@ -23,6 +23,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.MessageIn;
 
@@ -32,9 +33,9 @@ public class GossipDigestAck2VerbHandler implements IVerbHandler<GossipDigestAck
 
     public void doVerb(MessageIn<GossipDigestAck2> message, int id)
     {
+        InetAddress from = message.from;
         if (logger.isTraceEnabled())
         {
-            InetAddress from = message.from;
             logger.trace("Received a GossipDigestAck2Message from {}", from);
         }
         if (!Gossiper.instance.isEnabled())
@@ -43,7 +44,17 @@ public class GossipDigestAck2VerbHandler implements IVerbHandler<GossipDigestAck
                 logger.trace("Ignoring GossipDigestAck2Message because gossip is disabled");
             return;
         }
-        Map<InetAddress, EndpointState> remoteEpStateMap = message.payload.getEndpointStateMap();
+
+        GossipDigestAck2 gDigestAck2Message = message.payload;
+
+        /* If the message is from a different cluster throw it away. */
+        if (gDigestAck2Message.clusterId != null && !gDigestAck2Message.clusterId.equals(DatabaseDescriptor.getClusterName()))
+        {
+            logger.warn("Cluster name mismatch from {} {}!={}", from, gDigestAck2Message.clusterId, DatabaseDescriptor.getClusterName());
+            return;
+        }
+
+        Map<InetAddress, EndpointState> remoteEpStateMap = gDigestAck2Message.getEndpointStateMap();
         /* Notify the Failure Detector */
         Gossiper.instance.notifyFailureDetector(remoteEpStateMap);
         Gossiper.instance.applyStateLocally(remoteEpStateMap);

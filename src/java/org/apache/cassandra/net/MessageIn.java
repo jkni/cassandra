@@ -76,6 +76,7 @@ public class MessageIn<T>
         InetAddress from = CompactEndpointSerializationHelper.deserialize(in);
 
         MessagingService.Verb verb = MessagingService.Verb.values()[in.readInt()];
+
         int parameterCount = in.readInt();
         Map<String, byte[]> parameters;
         if (parameterCount == 0)
@@ -96,6 +97,7 @@ public class MessageIn<T>
         }
 
         int payloadSize = in.readInt();
+
         IVersionedSerializer<T2> serializer = (IVersionedSerializer<T2>) MessagingService.verbSerializers.get(verb);
         if (serializer instanceof MessagingService.CallbackDeterminedSerializer)
         {
@@ -108,6 +110,7 @@ public class MessageIn<T>
             }
             serializer = (IVersionedSerializer<T2>) callback.serializer;
         }
+
         if (payloadSize == 0 || serializer == null)
             return create(from, null, parameters, verb, version, constructionTime);
 

@@ -49,7 +49,7 @@ public class GossipDigestSynVerbHandler implements IVerbHandler<GossipDigestSyn>
         /* If the message is from a different cluster throw it away. */
         if (!gDigestMessage.clusterId.equals(DatabaseDescriptor.getClusterName()))
         {
-            logger.warn("ClusterName mismatch from {} {}!={}", from, gDigestMessage.clusterId, DatabaseDescriptor.getClusterName());
+            logger.warn("Cluster name mismatch from {} {}!={}", from, gDigestMessage.clusterId, DatabaseDescriptor.getClusterName());
             return;
         }
 
@@ -78,7 +78,8 @@ public class GossipDigestSynVerbHandler implements IVerbHandler<GossipDigestSyn>
         Gossiper.instance.examineGossiper(gDigestList, deltaGossipDigestList, deltaEpStateMap);
         logger.trace("sending {} digests and {} deltas", deltaGossipDigestList.size(), deltaEpStateMap.size());
         MessageOut<GossipDigestAck> gDigestAckMessage = new MessageOut<GossipDigestAck>(MessagingService.Verb.GOSSIP_DIGEST_ACK,
-                                                                                        new GossipDigestAck(deltaGossipDigestList, deltaEpStateMap),
+                                                                                        new GossipDigestAck(DatabaseDescriptor.getClusterName(),
+                                                                                                            deltaGossipDigestList, deltaEpStateMap),
                                                                                         GossipDigestAck.serializer);
         if (logger.isTraceEnabled())
             logger.trace("Sending a GossipDigestAckMessage to {}", from);
