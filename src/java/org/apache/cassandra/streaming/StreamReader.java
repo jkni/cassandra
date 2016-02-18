@@ -44,6 +44,7 @@ import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.streaming.messages.FileMessageHeader;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.BytesReadTracker;
+import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Pair;
 
 
@@ -117,7 +118,7 @@ public class StreamReader
                 session.progress(writer.getFilename(), ProgressInfo.Direction.IN, in.getBytesRead(), totalSize);
             }
             logger.debug("[Stream #{}] Finished receiving file #{} from {} readBytes = {}, totalSize = {}",
-                         session.planId(), fileSeqNum, session.peer, in.getBytesRead(), totalSize);
+                         session.planId(), fileSeqNum, session.peer, FBUtilities.prettyPrintMemory(in.getBytesRead()), FBUtilities.prettyPrintMemory(totalSize));
             return writer;
         }
         catch (Throwable e)
@@ -141,7 +142,7 @@ public class StreamReader
     {
         Directories.DataDirectory localDir = cfs.getDirectories().getWriteableLocation(totalSize);
         if (localDir == null)
-            throw new IOException("Insufficient disk space to store " + totalSize + " bytes");
+            throw new IOException(String.format("Insufficient disk space to store $s", FBUtilities.prettyPrintMemory(totalSize)));
 
         RangeAwareSSTableWriter writer = new RangeAwareSSTableWriter(cfs, estimatedKeys, repairedAt, format, sstableLevel, totalSize, session.getTransaction(cfId), header);
         StreamHook.instance.reportIncomingFile(cfs, writer, session, fileSeqNum);
