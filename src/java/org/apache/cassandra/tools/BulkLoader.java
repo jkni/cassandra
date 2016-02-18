@@ -40,6 +40,7 @@ import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.io.sstable.SSTableLoader;
 import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.streaming.*;
+import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.JVMStabilityInspector;
 import org.apache.cassandra.utils.NativeSSTableLoaderClient;
 import org.apache.cassandra.utils.OutputHandler;
@@ -212,7 +213,7 @@ public class BulkLoader
 
                         sb.append(session.sessionIndex).append(":");
                         sb.append(completed).append("/").append(session.getTotalFilesToSend());
-                        sb.append(" ").append(String.format("%-3d", size == 0 ? 100L : current * 100L / size)).append("% ");
+                        sb.append(" ").append(String.format("%-8d", size == 0 ? 100L : current * 100L / size)).append("% ");
 
                         if (updateTotalFiles)
                             totalFiles += session.getTotalFilesToSend();
@@ -224,35 +225,46 @@ public class BulkLoader
                 lastProgress = totalProgress;
 
                 sb.append("total: ").append(totalSize == 0 ? 100L : totalProgress * 100L / totalSize).append("% ");
-                sb.append(String.format("%-3d", mbPerSec(deltaProgress, deltaTime))).append("MB/s");
-                int average = mbPerSec(totalProgress, (time - start));
+                int bytesPerSeconds = bytesPerSeconds(deltaProgress, deltaTime);
+                sb.append(String.format("%-8s", prettyPrintRateInSeconds(bytesPerSeconds)));
+                int average = bytesPerSeconds(totalProgress, (time - start));
                 if (average > peak)
                     peak = average;
-                sb.append("(avg: ").append(average).append(" MB/s)");
+                sb.append("(avg: ").append(prettyPrintRateInSeconds(average));
 
                 System.out.print(sb.toString());
             }
         }
 
-        private int mbPerSec(long bytes, long timeInNano)
+        private int bytesPerSeconds(long bytes, long timeInNano)
         {
             double bytesPerNano = ((double)bytes) / timeInNano;
-            return (int)((bytesPerNano * 1000 * 1000 * 1000) / (1024 * 1024));
+            return (int)((bytesPerNano * 1000 * 1000 * 1000));
+        }
+
+        private String prettyPrintRateInSeconds(long size)
+        {
+            if (size >= 1 << 30)
+                return String.format("%.2f GiB/s", size / (double) (1 << 30));
+            if (size >= 1 << 20)
+                return String.format("%.2f MiB/s", size / (double) (1 << 20));
+            return String.format("%.2f KiB/s", size / (double) (1 << 10));
         }
 
         private void printSummary(int connectionsPerHost)
         {
             long end = System.nanoTime();
             long durationMS = ((end - start) / (1000000));
-            int average = mbPerSec(lastProgress, (end - start));
+            int average = bytesPerSeconds(lastProgress, (end - start));
+
             StringBuilder sb = new StringBuilder();
             sb.append("\nSummary statistics: \n");
-            sb.append(String.format("   %-30s: %-10d%n", "Connections per host: ", connectionsPerHost));
-            sb.append(String.format("   %-30s: %-10d%n", "Total files transferred: ", totalFiles));
-            sb.append(String.format("   %-30s: %-10d%n", "Total bytes transferred: ", lastProgress));
-            sb.append(String.format("   %-30s: %-10d%n", "Total duration (ms): ", durationMS));
-            sb.append(String.format("   %-30s: %-10d%n", "Average transfer rate (MB/s): ", + average));
-            sb.append(String.format("   %-30s: %-10d%n", "Peak transfer rate (MB/s): ", + peak));
+            sb.append(String.format("   %-24s: %-10d%n", "Connections per host ", connectionsPerHost));
+            sb.append(String.format("   %-24s: %-10d%n", "Total files transferred ", totalFiles));
+            sb.append(String.format("   %-24s: %-10s%n", "Total bytes transferred ", FBUtilities.prettyPrintMemory(lastProgress)));
+            sb.append(String.format("   %-24s: %-10s%n", "Total duration ", durationMS + " ms"));
+            sb.append(String.format("   %-24s: %-10s%n", "Average transfer rate ", prettyPrintRateInSeconds(average)));
+            sb.append(String.format("   %-24s: %-10s%n", "Peak transfer rate ",  prettyPrintRateInSeconds(peak)));
             System.out.println(sb.toString());
         }
     }

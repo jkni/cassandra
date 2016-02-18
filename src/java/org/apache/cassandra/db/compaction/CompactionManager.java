@@ -967,7 +967,7 @@ public class CompactionManager implements CompactionManagerMBean
         long expectedBloomFilterSize = Math.max(cfs.metadata.params.minIndexInterval,
                                                SSTableReader.getApproximateKeyCount(txn.originals()));
         if (logger.isTraceEnabled())
-            logger.trace("Expected bloom filter size : {}", expectedBloomFilterSize);
+            logger.trace("Expected bloom filter size : {}", FBUtilities.prettyPrintMemory(expectedBloomFilterSize));
 
         logger.info("Cleaning up {}", sstable);
 
@@ -1006,14 +1006,15 @@ public class CompactionManager implements CompactionManagerMBean
 
         if (!finished.isEmpty())
         {
-            String format = "Cleaned up to %s.  %,d to %,d (~%d%% of original) bytes for %,d keys.  Time: %,dms.";
+            String format = "Cleaned up to %s.  %s to %s (~%d%% of original) for %,d keys.  Time: %,dms.";
             long dTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
             long startsize = sstable.onDiskLength();
             long endsize = 0;
             for (SSTableReader newSstable : finished)
                 endsize += newSstable.onDiskLength();
             double ratio = (double) endsize / (double) startsize;
-            logger.info(String.format(format, finished.get(0).getFilename(), startsize, endsize, (int) (ratio * 100), totalkeysWritten, dTime));
+            logger.info(String.format(format, finished.get(0).getFilename(), FBUtilities.prettyPrintMemory(startsize),
+                                      FBUtilities.prettyPrintMemory(endsize), (int) (ratio * 100), totalkeysWritten, dTime));
         }
 
     }
@@ -1271,11 +1272,11 @@ public class CompactionManager implements CompactionManagerMBean
             {
                 // MT serialize may take time
                 long duration = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
-                logger.trace("Validation finished in {} msec, depth {} for {} keys, serialized size {} bytes for {}",
+                logger.trace("Validation finished in {} msec, depth {} for {} keys, serialized size {} for {}",
                              duration,
                              depth,
                              numPartitions,
-                             MerkleTrees.serializer.serializedSize(tree, 0),
+                             FBUtilities.prettyPrintMemory(MerkleTrees.serializer.serializedSize(tree, 0)),
                              validator.desc);
             }
         }
