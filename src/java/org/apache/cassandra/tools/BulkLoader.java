@@ -213,7 +213,7 @@ public class BulkLoader
 
                         sb.append(session.sessionIndex).append(":");
                         sb.append(completed).append("/").append(session.getTotalFilesToSend());
-                        sb.append(" ").append(String.format("%-8d", size == 0 ? 100L : current * 100L / size)).append("% ");
+                        sb.append(" ").append(String.format("%-3d", size == 0 ? 100L : current * 100L / size)).append("% ");
 
                         if (updateTotalFiles)
                             totalFiles += session.getTotalFilesToSend();
@@ -226,11 +226,11 @@ public class BulkLoader
 
                 sb.append("total: ").append(totalSize == 0 ? 100L : totalProgress * 100L / totalSize).append("% ");
                 int bytesPerSeconds = bytesPerSeconds(deltaProgress, deltaTime);
-                sb.append(String.format("%-8s", prettyPrintRateInSeconds(bytesPerSeconds)));
+                sb.append(prettyPrintRateInSeconds(bytesPerSeconds));
                 int average = bytesPerSeconds(totalProgress, (time - start));
                 if (average > peak)
                     peak = average;
-                sb.append("(avg: ").append(prettyPrintRateInSeconds(average));
+                sb.append(" (avg: ").append(prettyPrintRateInSeconds(average)).append(")");
 
                 System.out.print(sb.toString());
             }
@@ -242,13 +242,13 @@ public class BulkLoader
             return (int)((bytesPerNano * 1000 * 1000 * 1000));
         }
 
-        private String prettyPrintRateInSeconds(long size)
+        private String prettyPrintRateInSeconds(long rate)
         {
-            if (size >= 1 << 30)
-                return String.format("%.2f GiB/s", size / (double) (1 << 30));
-            if (size >= 1 << 20)
-                return String.format("%.2f MiB/s", size / (double) (1 << 20));
-            return String.format("%.2f KiB/s", size / (double) (1 << 10));
+            if (rate >= 1 << 30)
+                return String.format("%.2f GiB/s", rate / (double) (1 << 30));
+            if (rate >= 1 << 20)
+                return String.format("%.2f MiB/s", rate / (double) (1 << 20));
+            return String.format("%.2f KiB/s", rate / (double) (1 << 10));
         }
 
         private void printSummary(int connectionsPerHost)

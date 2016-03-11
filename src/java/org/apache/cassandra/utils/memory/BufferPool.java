@@ -264,7 +264,7 @@ public class BufferPool
                 if (cur + MACRO_CHUNK_SIZE > MEMORY_USAGE_THRESHOLD)
                 {
                     noSpamLogger.info("Maximum memory usage reached ({}), cannot allocate chunk of {}",
-                                      FBUtilities.prettyPrintMemory(MEMORY_USAGE_THRESHOLD)
+                                      FBUtilities.prettyPrintMemory(MEMORY_USAGE_THRESHOLD),
                                       FBUtilities.prettyPrintMemory(MACRO_CHUNK_SIZE));
                     return false;
                 }

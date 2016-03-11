@@ -66,8 +66,8 @@ public class RangeAwareSSTableWriter implements SSTableMultiWriter
         {
             Directories.DataDirectory localDir = cfs.getDirectories().getWriteableLocation(totalSize);
             if (localDir == null)
-                throw new RuntimeException(String.format("Insufficient disk space to store %s",
-                                                         FBUtilities.prettyPrintMemory(totalSize)));
+                throw new IOException(String.format("Insufficient disk space to store %s",
+                                                    FBUtilities.prettyPrintMemory(totalSize)));
             Descriptor desc = Descriptor.fromFilename(cfs.getSSTablePath(cfs.getDirectories().getLocationForDisk(localDir), format));
             currentWriter = cfs.createSSTableMultiWriter(desc, estimatedKeys, repairedAt, sstableLevel, header.toHeader(cfs.metadata), txn);
         }

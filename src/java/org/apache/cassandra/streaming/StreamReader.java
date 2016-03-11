@@ -142,7 +142,7 @@ public class StreamReader
     {
         Directories.DataDirectory localDir = cfs.getDirectories().getWriteableLocation(totalSize);
         if (localDir == null)
-            throw new IOException(String.format("Insufficient disk space to store $s", FBUtilities.prettyPrintMemory(totalSize)));
+            throw new IOException(String.format("Insufficient disk space to store %s", FBUtilities.prettyPrintMemory(totalSize)));
 
         RangeAwareSSTableWriter writer = new RangeAwareSSTableWriter(cfs, estimatedKeys, repairedAt, format, sstableLevel, totalSize, session.getTransaction(cfId), header);
         StreamHook.instance.reportIncomingFile(cfs, writer, session, fileSeqNum);

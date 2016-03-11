@@ -967,7 +967,7 @@ public class CompactionManager implements CompactionManagerMBean
         long expectedBloomFilterSize = Math.max(cfs.metadata.params.minIndexInterval,
                                                SSTableReader.getApproximateKeyCount(txn.originals()));
         if (logger.isTraceEnabled())
-            logger.trace("Expected bloom filter size : {}", FBUtilities.prettyPrintMemory(expectedBloomFilterSize));
+            logger.trace("Expected bloom filter size : {}", expectedBloomFilterSize);
 
         logger.info("Cleaning up {}", sstable);
 
