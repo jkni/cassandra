@@ -392,24 +392,40 @@ public class SimpleQueryTest extends CQLTester
 
         execute("INSERT INTO %s (k, t, v, s) values (?, ?, ?, ?)", "key1", 3, "foo3", "st3");
         execute("INSERT INTO %s (k, t, v) values (?, ?, ?)", "key1", 4, "foo4");
+        execute("INSERT INTO %s (k, t, v, s) values (?, ?, ?, ?)", "key1", 2, "foo2", "st2-repeat");
+
+        flush();
+
+        execute("INSERT INTO %s (k, t, v, s) values (?, ?, ?, ?)", "key1", 5, "foo5", "st5");
+        execute("INSERT INTO %s (k, t, v) values (?, ?, ?)", "key1", 6, "foo6");
+
 
         assertRows(execute("SELECT * FROM %s"),
-            row("key1",  1, "st3", "foo1"),
-            row("key1",  2, "st3", "foo2"),
-            row("key1",  3, "st3", "foo3"),
-            row("key1",  4, "st3", "foo4")
+            row("key1",  1, "st5", "foo1"),
+            row("key1",  2, "st5", "foo2"),
+            row("key1",  3, "st5", "foo3"),
+            row("key1",  4, "st5", "foo4"),
+            row("key1",  5, "st5", "foo5"),
+            row("key1",  6, "st5", "foo6")
         );
 
         assertRows(execute("SELECT s FROM %s WHERE k = ?", "key1"),
-            row("st3"),
-            row("st3"),
-            row("st3"),
-            row("st3")
+            row("st5"),
+            row("st5"),
+            row("st5"),
+            row("st5"),
+            row("st5"),
+            row("st5")
         );
 
         assertRows(execute("SELECT DISTINCT s FROM %s WHERE k = ?", "key1"),
-            row("st3")
+            row("st5")
         );
+
+        assertEmpty(execute("SELECT * FROM %s WHERE k = ? AND t > ? AND t < ?", "key1", 7, 5));
+
+        assertRows(execute("SELECT * FROM %s WHERE k = ? AND t = ?", "key1", 2),
+            row("key1", 2, "st5", "foo2"));
     }
 
     @Test
@@ -550,6 +566,8 @@ public class SimpleQueryTest extends CQLTester
         assertRows(execute("SELECT * FROM %s WHERE extra > 1 ALLOW FILTERING"),
             row(2, 2, 2, 2)
         );
+
+        flush();
     }
 
     @Test

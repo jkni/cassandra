@@ -113,7 +113,7 @@ abstract class AbstractSSTableIterator implements UnfilteredRowIterator
                     this.reader = needsReader ? createReader(indexEntry, file, shouldCloseFile) : null;
                 }
 
-                if (reader != null && slices.size() > 0)
+                if (reader != null && !slices.isEmpty())
                     reader.setForSlice(slices.get(0));
 
                 if (reader == null && file != null && shouldCloseFile)

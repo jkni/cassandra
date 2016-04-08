@@ -44,14 +44,41 @@ public class SSTableIterator extends AbstractSSTableIterator
 
     protected Reader createReader(RowIndexEntry indexEntry, FileDataInput file, boolean shouldCloseFile)
     {
-        return indexEntry.isIndexed()
-             ? new ForwardIndexedReader(indexEntry, file, shouldCloseFile)
-             : new ForwardReader(file, shouldCloseFile);
+        if (slices.isEmpty())
+            return new NoRowsReader(file, shouldCloseFile);
+        else if (indexEntry.isIndexed())
+            return new ForwardIndexedReader(indexEntry, file, shouldCloseFile);
+        else
+            return new ForwardReader(file, shouldCloseFile);
     }
 
     public boolean isReverseOrder()
     {
         return false;
+    }
+
+    // Reader for when we have Slices.NONE but need to read static row or partition level deletion
+    private class NoRowsReader extends Reader
+    {
+        private NoRowsReader(FileDataInput file, boolean shouldCloseFile)
+        {
+            super(file, shouldCloseFile);
+        }
+
+        public void setForSlice(Slice slice) throws IOException
+        {
+            return;
+        }
+
+        protected boolean hasNextInternal() throws IOException
+        {
+            return false;
+        }
+
+        protected Unfiltered nextInternal() throws IOException
+        {
+            throw new NoSuchElementException();
+        }
     }
 
     private class ForwardReader extends Reader
