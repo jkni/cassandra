@@ -104,7 +104,7 @@ public class UUIDTests
     @Test
     public void verifyConcurrentUUIDGeneration() throws Throwable
     {
-        long iterations = 1000000;
+        long iterations = 250000;
         int threads = 4;
         ExecutorService es = Executors.newFixedThreadPool(threads);
         try
@@ -114,13 +114,19 @@ public class UUIDTests
             Set<UUID> generated = Sets.newSetFromMap(new NonBlockingHashMap<>());
             Runnable task = () -> {
                 long lastTimestamp = 0;
+                long newTimestamp = 0;
+
                 for (long i = 0; i < iterations; i++)
                 {
                     UUID uuid = UUIDGen.getTimeUUID();
-                    if (lastTimestamp > uuid.timestamp())
+                    newTimestamp = uuid.timestamp();
+
+                    if (lastTimestamp >= newTimestamp)
                         failedOrdering.set(true);
                     if (!generated.add(uuid))
                         failedDuplicate.set(true);
+
+                    lastTimestamp = newTimestamp;
                 }
             };
 
@@ -129,7 +135,8 @@ public class UUIDTests
                 es.execute(task);
             }
             es.shutdown();
-            es.awaitTermination(1, TimeUnit.HOURS);
+            es.awaitTermination(10, TimeUnit.MINUTES);
+
             assert !failedOrdering.get();
             assert !failedDuplicate.get();
         }
