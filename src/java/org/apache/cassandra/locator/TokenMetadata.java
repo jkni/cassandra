@@ -27,6 +27,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.google.common.collect.*;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -182,20 +183,31 @@ public class TokenMetadata
                 assert tokens != null && !tokens.isEmpty();
 
                 bootstrapTokens.removeValue(endpoint);
-                tokenToEndpointMap.removeValue(endpoint);
+
                 topology.addEndpoint(endpoint);
                 leavingEndpoints.remove(endpoint);
                 removeFromMoving(endpoint); // also removing this endpoint from moving
 
-                for (Token token : tokens)
+                boolean isMember = isMember(endpoint);
+
+                // we don't want to invalidate cache if we don't need to change normal tokens
+                if (!isMember || (isMember && !CollectionUtils.isEqualCollection(getTokens(endpoint), tokens)))
                 {
-                    InetAddress prev = tokenToEndpointMap.put(token, endpoint);
-                    if (!endpoint.equals(prev))
+                    if (isMember)
+                        tokenToEndpointMap.removeValue(endpoint);
+
+                    for (Token token : tokens)
                     {
-                        if (prev != null)
-                            logger.warn("Token {} changing ownership from {} to {}", token, prev, endpoint);
-                        shouldSortTokens = true;
+                        InetAddress prev = tokenToEndpointMap.put(token, endpoint);
+                        if (!endpoint.equals(prev))
+                        {
+                            if (prev != null)
+                                logger.warn("Token {} changing ownership from {} to {}", token, prev, endpoint);
+                            shouldSortTokens = true;
+                        }
                     }
+
+                    invalidateCachedRings();
                 }
             }
 
@@ -456,11 +468,10 @@ public class TokenMetadata
                 if (pair.right.equals(endpoint))
                 {
                     movingEndpoints.remove(pair);
+                    invalidateCachedRings();
                     break;
                 }
             }
-
-            invalidateCachedRings();
         }
         finally
         {

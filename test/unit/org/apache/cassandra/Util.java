@@ -298,6 +298,58 @@ public class Util
             assertTrue(ss.getTokenMetadata().isMember(hosts.get(i)));
     }
 
+    public static void createInitialRingVnodes(StorageService ss, IPartitioner partitioner, int tokenCount,
+                                               List<Set<Token>> endpointTokens, List<InetAddress> hosts,
+                                               List<UUID> hostIds, int howMany)
+        throws UnknownHostException
+    {
+        Set<Token> claimedTokens = new HashSet<>();
+
+        for (int i = hostIdPool.size(); i < howMany; i++)
+            hostIdPool.add(UUID.randomUUID());
+
+        boolean endpointTokenPrefilled = endpointTokens != null && !endpointTokens.isEmpty();
+
+        for (int i = 0; i < howMany; i++)
+        {
+
+        }
+
+        for (int i = 0; i < howMany; i++)
+        {
+            if (!endpointTokenPrefilled)
+            {
+                endpointTokens.add(new HashSet<Token>());
+                for (int j = 0; j < tokenCount; j++)
+                {
+                    Token tokenCandidate = partitioner.getRandomToken();
+                    if (claimedTokens.add(tokenCandidate))
+                    {
+                        endpointTokens.get(i).add(tokenCandidate);
+                    }
+                }
+            }
+
+            hostIds.add(hostIdPool.get(i));
+        }
+
+        for (int i=0; i<endpointTokens.size(); i++)
+        {
+            InetAddress ep = InetAddress.getByName("127.0." + (i + 1) / 256 + "." + String.valueOf((i + 1) % 256));
+            Gossiper.instance.initializeNodeUnsafe(ep, hostIds.get(i), 1);
+            Gossiper.instance.injectApplicationState(ep, ApplicationState.TOKENS, new VersionedValue.VersionedValueFactory(partitioner).tokens(endpointTokens.get(i)));
+            ss.onChange(ep,
+                        ApplicationState.STATUS,
+                        new VersionedValue.VersionedValueFactory(partitioner).normal(endpointTokens.get(i)));
+            hosts.add(ep);
+        }
+
+        // check that all nodes are in token metadata
+        for (int i=0; i < endpointTokens.size(); ++i)
+            assertTrue(ss.getTokenMetadata().isMember(hosts.get(i)));
+
+    }
+
     public static Future<?> compactAll(ColumnFamilyStore cfs, int gcBefore)
     {
         List<Descriptor> descriptors = new ArrayList<>();

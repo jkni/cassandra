@@ -21,7 +21,10 @@ package org.apache.cassandra.locator;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
@@ -38,7 +41,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.cassandra.OrderedJUnit4ClassRunner;
+import org.apache.cassandra.SchemaLoader;
+import org.apache.cassandra.Util;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.dht.IPartitioner;
+import org.apache.cassandra.dht.Murmur3Partitioner;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.service.StorageService;
 
@@ -286,5 +293,33 @@ public class TokenMetadataTest
         assertTrue(racks.get(DATA_CENTER).containsKey(RACK2));
         assertTrue(racks.get(DATA_CENTER).get(RACK1).contains(first));
         assertTrue(racks.get(DATA_CENTER).get(RACK2).contains(second));
+    }
+
+    @Test
+    public void testCloneOnlyTokenMap() throws UnknownHostException
+    {
+        SchemaLoader.prepareServer();
+
+        StorageService ss = StorageService.instance;
+        TokenMetadata tmd = ss.getTokenMetadata();
+        tmd.clearUnsafe();
+        IPartitioner partitioner = new Murmur3Partitioner();
+
+        ArrayList<Set<Token>> endpointTokens = new ArrayList<>();
+        List<InetAddress> hosts = new ArrayList<>();
+        List<UUID> hostIds = new ArrayList<>();
+
+        Util.createInitialRingVnodes(ss, partitioner, 256, endpointTokens, hosts, hostIds, 500);
+
+        long end;
+        long start = System.nanoTime();
+
+        TokenMetadata newTmd = tmd.cloneOnlyTokenMap();
+
+        end = System.nanoTime();
+
+        System.out.println("start " + start);
+        System.out.println("end " + end);
+        System.out.println("difference " + (end - start));
     }
 }
