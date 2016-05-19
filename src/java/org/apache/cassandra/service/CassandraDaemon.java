@@ -166,6 +166,8 @@ public class CassandraDaemon
             exitOrFail(e.returnCode, e.getMessage(), e.getCause());
         }
 
+        SystemKeyspace.persistLocalMetadata();
+
         try
         {
             SystemKeyspace.snapshotOnVersionChange();
