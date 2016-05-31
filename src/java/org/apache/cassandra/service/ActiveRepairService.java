@@ -465,6 +465,18 @@ public class ActiveRepairService implements IEndpointStateChangeSubscriber, IFai
         }
     }
 
+    /**
+     * We keep a ParentRepairSession around for the duration of the entire repair, for example, on a 256 token vnode rf=3 cluster
+     * we would have 768 RepairSession but only one ParentRepairSession. We use the PRS to avoid anticompacting the sstables
+     * 768 times, instead we take all repaired ranges at the end of the repair and anticompact once.
+     *
+     * We do an optimistic marking of sstables - when we start an incremental repair we mark all unrepaired sstables as
+     * repairing (@see markSSTablesRepairing), then while the repair is ongoing compactions might remove those sstables,
+     * and when it is time for anticompaction we will only anticompact the sstables that are still on disk.
+     *
+     * Note that validation and streaming do not care about which sstables we have marked as repairing - they operate on
+     * all unrepaired sstables (if it is incremental), otherwise we would not get a correct repair.
+     */
     public static class ParentRepairSession
     {
         public final Map<UUID, ColumnFamilyStore> columnFamilyStores = new HashMap<>();
