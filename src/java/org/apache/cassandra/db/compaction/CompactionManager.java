@@ -1061,6 +1061,7 @@ public class CompactionManager implements CompactionManagerMBean
 
             int gcBefore;
             int nowInSec = FBUtilities.nowInSeconds();
+
             UUID parentRepairSessionId = validator.desc.parentSessionId;
             String snapshotName;
             boolean isGlobalSnapshotValidation = cfs.snapshotExists(parentRepairSessionId.toString());
@@ -1186,7 +1187,7 @@ public class CompactionManager implements CompactionManagerMBean
         if (prs.isGlobal)
             prs.markSSTablesRepairing(cfs.metadata.cfId, validator.desc.parentSessionId);
         // note that we always grab all existing sstables for this - if we were to just grab the ones that
-        // were marked as repairing, we would miss any ranges that were compacted away and this would cause us to overstream
+        // were marked as repairing, we would mishs any ranges that were compacted away and this would cause us to overstream
         try (ColumnFamilyStore.RefViewFragment sstableCandidates = cfs.selectAndReference(View.select(SSTableSet.CANONICAL, (s) -> !prs.isIncremental || !s.isRepaired())))
         {
             for (SSTableReader sstable : sstableCandidates.sstables)

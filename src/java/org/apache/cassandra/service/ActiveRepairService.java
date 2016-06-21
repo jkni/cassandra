@@ -519,6 +519,7 @@ public class ActiveRepairService implements IEndpointStateChangeSubscriber, IFai
             if (!marked.containsKey(cfId))
             {
                 List<SSTableReader> sstables = columnFamilyStores.get(cfId).select(View.select(SSTableSet.CANONICAL, (s) -> !isIncremental || !s.isRepaired())).sstables;
+
                 Set<SSTableReader> currentlyRepairing = ActiveRepairService.instance.currentlyRepairing(cfId, parentSessionId);
                 if (!Sets.intersection(currentlyRepairing, Sets.newHashSet(sstables)).isEmpty())
                 {
@@ -584,6 +585,7 @@ public class ActiveRepairService implements IEndpointStateChangeSubscriber, IFai
             {
                 throw new RuntimeException(e);
             }
+
             for (SSTableReader sstable : cfs.getSSTables(SSTableSet.CANONICAL))
                 if (snapshotGenerations.contains(sstable.descriptor.generation))
                     activeSSTables.add(sstable);
