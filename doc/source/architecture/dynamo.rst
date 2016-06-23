@@ -20,6 +20,78 @@ Dynamo
 Gossip
 ^^^^^^
 
+Cassandra employs a peer-to-peer metadata sharing protocol called ``gossip`` in order to distribute information about
+node state and membership throughout the cluster. The gossip protocol ensures that every node eventually knows
+this information through periodic anti-entropy exchanges.
+
+Each node maintains an ``EndpointState`` for every node in the
+cluster, which is used to track both a ``HeartBeatState`` and a map from ``ApplicationState``s to
+``VersionedValue``s. A ``HeartBeatState`` consists of a generation which is set on gossip service initialization and a
+version that is incremented before each gossip exchange. An ``ApplicationState`` is an enum value representing the type
+of information being stored, such as the node's datacenter or the node's tokens. A ``VersionedValue`` consists of some
+state and a version number. This version number is drawn from the same source as the ``HeartBeatState``'s version, such
+that the version number is monotonically increasing across all values and heartbeats for a given generation.
+A node only directly modifies its own ``EndpointState``, which it then disseminates through gossip. Correspondingly, it
+only updates ``EndpointState`` components for other nodes through gossip.
+
+By default, each node initiates a new gossip round every second. This round starts by incrementing the local heartbeat
+version. Then, the node picks a random live member with which to gossip. Next, the node will gossip to a down member
+with some probability, where the probability of this exchange increases with the ratio of down nodes to live nodes.
+Lastly, if the node did not gossip with a live member who is a seed or if there are fewer live endpoints than seeds, the
+node will gossip with a seed with some probability, where the probability of this exchanges increases with the ratio
+of seeds to total node count. These node selections aim to accelerate convergence of gossip and avoid partitions in
+gossip.
+
+With each gossip target selected, the node initiates a 3 way handshake consisting of a ``GossipDigestSyn`` message, a
+``GossipDigestAck`` message in reply, and a final ``GossipDigestAck2`` message. The ``GossipDigestSyn`` message contains
+the cluster identifier, the partitioner in use, and a ``GossipDigest`` for each ``EndpointState``. The cluster
+identifier prevents gossip between misconfigured clusters. The partitioner enabled a historical upgrade path. Lastly,
+each digest consists of the endpoint address, generation, and the highest version across all ``ApplicationState``s and
+the ``HeartBeatState`` for the given ``EndpointState``. In response to this ``GossipDigestSynMessage``, the receiving
+node replies with a ``GossipDigestAck``. This ``GossipDigestAck`` contains a list of gossip digests for endpoints which
+the originating node has newer values (determined by the ``GossipDigestSyn`` digests) and a map of endpoints to
+``EndpointState``s. These ``EndpointStates`` contain the states for which the receiving node has newer values. Note that
+these states are totally ordered first by the generation and then by the version, and when a node has an
+``EndpointState`` with a newer generation, it must send all ``ApplicationState``s. Lastly, in response to this
+``GossipDigestAck`` message, the originating node will send a ``GossipDigestAck2`` message, which contains the
+``EndpointState`` components newer than the digests in the ``GossipDigestAckMessage``.
+
+
+ApplicationState
+~~~~~~~~~~~~~~~~
+Cassandra distributes many kinds of metadata as ``ApplicationState``s through gossip.
+
+====================== =====================================
+Name                   Description
+====================== =====================================
+STATUS                 The node's membership status in the cluster, such as whether the node is bootstrapping or removed.
+LOAD                   Disk space used by SSTables on the node
+SCHEMA                 UUID of the node's current schema
+DC                     Node's datacenter, used by certain snitches
+RACK                   Node's rack, used by certain snitches
+RELEASE_VERSION        The release of Cassandra running on the node
+REMOVAL_COORDINATOR    The coordinator for removal of a node through ``nodetool removenode``
+INTERNAL_IP            Datacenter-local address used with reconnectable snitches for intra-datacenter communication
+RPC_ADDRESS            The configured broadcast_rpc_address for the node
+SEVERITY               A heuristic approximation of compaction activity on the node, used for dynamic snitch routing
+NET_VERSION            The ``MessagingService`` version of the node
+HOST_ID                UUID identifier for the node
+TOKENS                 Tokens the node claims in the token ring
+RPC_READY              Whether the node is ready to receive RPC connections
+====================== =====================================
+
+Tuning Gossip
+~~~~~~~~~~~~~
+To clear saved gossip state from a node, the node can be started with ``-Dcassandra.load_ring_state=true``.
+
+To prevent a node from joining the ring, a node can be started with ``-Dcassandra.join_ring=false``. This node will still
+participate in gossip.
+
+To adjust the ring delay, a node can be started with ``-Dcassandra.ring_delay_ms``. Since ``ring_delay`` is used to wait to
+estimate when gossip states have been fully propagated, this may need to be tuned for larger clusters.
+
+
+
 .. todo:: todo
 
 Failure Detection
@@ -30,6 +102,7 @@ Failure Detection
 Token Ring/Ranges
 ^^^^^^^^^^^^^^^^^
 
+Cassandra achieves
 .. todo:: todo
 
 .. _replication-strategy:
