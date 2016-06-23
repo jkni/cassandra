@@ -87,6 +87,9 @@ To clear saved gossip state from a node, the node can be started with ``-Dcassan
 To prevent a node from joining the ring, a node can be started with ``-Dcassandra.join_ring=false``. This node will still
 participate in gossip.
 
+For debugging, the flag ``-Dcassandra.start_gossip`` can be used to stop gossip from starting entirely. In this mode,
+a node will not interact with other nodes whatsoever.
+
 To adjust the ring delay, a node can be started with ``-Dcassandra.ring_delay_ms``. Since ``ring_delay`` is used to wait to
 estimate when gossip states have been fully propagated, this may need to be tuned for larger clusters.
 
