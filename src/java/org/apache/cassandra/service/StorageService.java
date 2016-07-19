@@ -184,6 +184,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
     // true when keeping strict consistency while bootstrapping
     private boolean useStrictConsistency = Boolean.parseBoolean(System.getProperty("cassandra.consistent.rangemovement", "true"));
     private static final boolean allowSimultaneousMoves = Boolean.valueOf(System.getProperty("cassandra.consistent.simultaneousmoves.allow","false"));
+    private final boolean joinRingFlag = Boolean.parseBoolean(System.getProperty("cassandra.join_ring", "true"));
     private boolean replacing;
 
     private final StreamStateStore streamStateStore = new StreamStateStore();
@@ -290,7 +291,14 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         if (!initialized)
         {
             logger.warn("Starting gossip by operator request");
-            setGossipTokens(getLocalTokens());
+            Collection<Token> tokens = SystemKeyspace.getSavedTokens();
+
+            if (joined || joinRingFlag)
+                assert tokens != null && !tokens.isEmpty(); // should not be called before initServer sets this
+
+            if (!tokens.isEmpty())
+                setGossipTokens(tokens);
+
             Gossiper.instance.forceNewerGeneration();
             Gossiper.instance.start((int) (System.currentTimeMillis() / 1000));
             initialized = true;
@@ -627,7 +635,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
             logger.warn("Error loading counter cache", t);
         }
 
-        if (Boolean.parseBoolean(System.getProperty("cassandra.join_ring", "true")))
+        if (joinRingFlag)
         {
             joinTokenRing(delay);
         }
@@ -670,7 +678,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         {
             Map<ApplicationState, VersionedValue> appStates = new EnumMap<>(ApplicationState.class);
 
-            if (replacing && !(Boolean.parseBoolean(System.getProperty("cassandra.join_ring", "true"))))
+            if (replacing && !joinRingFlag)
                 throw new ConfigurationException("Cannot set both join_ring=false and attempt to replace a node");
             if (DatabaseDescriptor.getReplaceTokens().size() > 0 || DatabaseDescriptor.getReplaceNode() != null)
                 throw new RuntimeException("Replace method removed; use cassandra.replace_address instead");
