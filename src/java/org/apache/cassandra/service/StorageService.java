@@ -135,12 +135,17 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
 
     private Thread drainOnShutdown = null;
     private volatile boolean inShutdownHook = false;
+    private volatile boolean shutdownHookFinished = false;
 
     public static final StorageService instance = new StorageService();
 
     public boolean isInShutdownHook()
     {
         return inShutdownHook;
+    }
+    public boolean isShutdown()
+    {
+        return shutdownHookFinished;
     }
 
     public Collection<Range<Token>> getLocalRanges(String keyspaceName)
@@ -571,6 +576,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
             @Override
             public void runMayThrow() throws InterruptedException
             {
+                logger.info("Starting shutdown hook");
                 inShutdownHook = true;
                 ExecutorService viewMutationStage = StageManager.getStage(Stage.VIEW_MUTATION);
                 ExecutorService counterMutationStage = StageManager.getStage(Stage.COUNTER_MUTATION);
@@ -578,7 +584,11 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
                 if (mutationStage.isShutdown()
                     && counterMutationStage.isShutdown()
                     && viewMutationStage.isShutdown())
+                {
+                    shutdownHookFinished = true;
                     return; // drained already
+                }
+
 
                 if (daemon != null)
                 	shutdownClientServers();
@@ -628,6 +638,9 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
                 ScheduledExecutors.nonPeriodicTasks.shutdown();
                 if (!ScheduledExecutors.nonPeriodicTasks.awaitTermination(1, TimeUnit.MINUTES))
                     logger.warn("Miscellaneous task executor still busy after one minute; proceeding with shutdown");
+
+                logger.info("Shutdown hook finished");
+                shutdownHookFinished = true;
             }
         }, "StorageServiceShutdownHook");
         Runtime.getRuntime().addShutdownHook(drainOnShutdown);
