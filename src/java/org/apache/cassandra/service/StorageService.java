@@ -625,17 +625,23 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
                     logger.warn("Caught exception while waiting for memtable flushes during shutdown hook", t);
                 }
 
+                BatchlogManager.instance.shutdown();
+
+                CompactionManager.instance.forceShutdown();
+
+                HintsService.instance.shutdownBlocking();
+
+                // wait for miscellaneous tasks like sstable deletion
+                ScheduledExecutors.nonPeriodicTasks.shutdown();
+                if (!ScheduledExecutors.nonPeriodicTasks.awaitTermination(1, TimeUnit.MINUTES))
+                    logger.warn("Miscellaneous task executor still busy after one minute; proceeding with shutdown");
+
+                ColumnFamilyStore.shutdownPostFlushExecutor();
+
                 CommitLog.instance.shutdownBlocking();
 
                 if (FBUtilities.isWindows())
                     WindowsTimer.endTimerPeriod(DatabaseDescriptor.getWindowsTimerInterval());
-
-                HintsService.instance.shutdownBlocking();
-
-                // wait for miscellaneous tasks like sstable and commitlog segment deletion
-                ScheduledExecutors.nonPeriodicTasks.shutdown();
-                if (!ScheduledExecutors.nonPeriodicTasks.awaitTermination(1, TimeUnit.MINUTES))
-                    logger.warn("Miscellaneous task executor still busy after one minute; proceeding with shutdown");
             }
         }, "StorageServiceShutdownHook");
         Runtime.getRuntime().addShutdownHook(drainOnShutdown);
@@ -4024,18 +4030,18 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         // Interrupt on going compaction and shutdown to prevent further compaction
         CompactionManager.instance.forceShutdown();
 
+        // wait for miscellaneous tasks like sstable deletion
+        ScheduledExecutors.nonPeriodicTasks.shutdown();
+        if (!ScheduledExecutors.nonPeriodicTasks.awaitTermination(1, TimeUnit.MINUTES))
+            logger.warn("Miscellaneous task executor still busy after one minute; proceeding with shutdown");
+
+        ColumnFamilyStore.shutdownPostFlushExecutor();
+
         // whilst we've flushed all the CFs, which will have recycled all completed segments, we want to ensure
         // there are no segments to replay, so we force the recycling of any remaining (should be at most one)
         CommitLog.instance.forceRecycleAllSegments();
 
-        ColumnFamilyStore.shutdownPostFlushExecutor();
-
         CommitLog.instance.shutdownBlocking();
-
-        // wait for miscellaneous tasks like sstable and commitlog segment deletion
-        ScheduledExecutors.nonPeriodicTasks.shutdown();
-        if (!ScheduledExecutors.nonPeriodicTasks.awaitTermination(1, TimeUnit.MINUTES))
-            logger.warn("Miscellaneous task executor still busy after one minute; proceeding with shutdown");
 
         setMode(Mode.DRAINED, true);
     }
