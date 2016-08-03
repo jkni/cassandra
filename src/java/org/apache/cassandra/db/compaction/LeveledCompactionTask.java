@@ -55,7 +55,7 @@ public class LeveledCompactionTask extends CompactionTask
     @Override
     protected boolean partialCompactionsAcceptable()
     {
-        return level == 0;
+        return false;
     }
 
     protected int getLevel()
