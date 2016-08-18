@@ -27,6 +27,9 @@ import java.util.Random;
 import com.google.common.util.concurrent.RateLimiter;
 import org.junit.Test;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.db.composites.SimpleDenseCellNameType;
 import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.exceptions.ConfigurationException;
@@ -47,6 +50,8 @@ import static org.junit.Assert.assertTrue;
 
 public class CompressedRandomAccessReaderTest
 {
+    private static final Logger logger = LoggerFactory.getLogger(CompressedRandomAccessReaderTest.class);
+
     @Test
     public void testResetAndTruncate() throws IOException
     {
@@ -183,7 +188,10 @@ public class CompressedRandomAccessReaderTest
         // read and verify compressed data
         assertEquals(CONTENT, reader.readLine());
 
-        Random random = new Random();
+        long seed = System.nanoTime();
+        logger.info("Seed {}", seed);
+        Random random = new Random(seed);
+
         RandomAccessFile checksumModifier = null;
 
         try
@@ -201,7 +209,7 @@ public class CompressedRandomAccessReaderTest
             // lets modify one byte of the checksum on each iteration
             for (int i = 0; i < checksum.length; i++)
             {
-                checksumModifier.write(random.nextInt());
+                checksumModifier.write((byte) random.nextInt() ^ checksum[i]);
                 SyncUtil.sync(checksumModifier); // making sure that change was synced with disk
 
                 final RandomAccessReader r = CompressedRandomAccessReader.open(channel, meta);
