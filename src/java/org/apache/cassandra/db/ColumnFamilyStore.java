@@ -1264,6 +1264,9 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         maybeUpdateRowCache(key);
         metric.samplers.get(Sampler.WRITES).addSample(key.getKey(), key.hashCode(), 1);
         metric.writeLatency.addNano(System.nanoTime() - start);
+
+        assert timeDelta < 86400000000L || timeDelta == Long.MAX_VALUE : "unreasonable timedelta";
+
         if(timeDelta < Long.MAX_VALUE)
             metric.colUpdateTimeDeltaHistogram.update(timeDelta);
     }
