@@ -1052,6 +1052,7 @@ public class TokenMetadata
     }
 
     /** used by tests */
+    @VisibleForTesting
     public void clearUnsafe()
     {
         lock.writeLock().lock();

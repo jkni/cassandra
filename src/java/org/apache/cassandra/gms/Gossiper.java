@@ -68,7 +68,7 @@ public class Gossiper implements IFailureDetectionEventListener, GossiperMBean
 {
     public static final String MBEAN_NAME = "org.apache.cassandra.net:type=Gossiper";
 
-    private static final DebuggableScheduledThreadPoolExecutor executor = new DebuggableScheduledThreadPoolExecutor("GossipTasks");
+    private volatile static DebuggableScheduledThreadPoolExecutor executor = null;
 
     static final ApplicationState[] STATES = ApplicationState.values();
     static final List<String> DEAD_STATES = Arrays.asList(VersionedValue.REMOVING_TOKEN, VersionedValue.REMOVED_TOKEN,
@@ -81,7 +81,6 @@ public class Gossiper implements IFailureDetectionEventListener, GossiperMBean
         SILENT_SHUTDOWN_STATES.add(VersionedValue.STATUS_BOOTSTRAPPING_REPLACE);
     }
 
-    private volatile ScheduledFuture<?> scheduledGossipTask;
     private static final ReentrantLock taskLock = new ReentrantLock();
     public final static int intervalInMillis = 1000;
     public final static int QUARANTINE_DELAY = StorageService.RING_DELAY * 2;
@@ -125,6 +124,7 @@ public class Gossiper implements IFailureDetectionEventListener, GossiperMBean
 
     private final Map<InetAddress, Long> expireTimeEndpointMap = new ConcurrentHashMap<InetAddress, Long>();
 
+    private volatile boolean gossiperEnabled = false;
     private volatile boolean inShadowRound = false;
     private final Set<InetAddress> seedsInShadowRound = new ConcurrentSkipListSet<>(inetcomparator);
 
@@ -1335,10 +1335,15 @@ public class Gossiper implements IFailureDetectionEventListener, GossiperMBean
         if (logger.isTraceEnabled())
             logger.trace("gossip started with generation {}", localState.getHeartBeatState().getGeneration());
 
-        scheduledGossipTask = executor.scheduleWithFixedDelay(new GossipTask(),
-                                                              Gossiper.intervalInMillis,
-                                                              Gossiper.intervalInMillis,
-                                                              TimeUnit.MILLISECONDS);
+        if (gossiperEnabled == false)
+            executor = new DebuggableScheduledThreadPoolExecutor("GossipTasks");
+
+        executor.scheduleWithFixedDelay(new GossipTask(),
+                                        Gossiper.intervalInMillis,
+                                        Gossiper.intervalInMillis,
+                                        TimeUnit.MILLISECONDS);
+
+        gossiperEnabled = true;
     }
 
     /**
@@ -1511,14 +1516,19 @@ public class Gossiper implements IFailureDetectionEventListener, GossiperMBean
         }
         else
             logger.warn("No local state, state is in silent shutdown, or node hasn't joined, not announcing shutdown");
-        if (scheduledGossipTask != null)
-            scheduledGossipTask.cancel(false);
+
+        gossiperEnabled = false;
+
+        if (executor != null)
+            executor.shutdown();
     }
 
     public boolean isEnabled()
     {
-        return (scheduledGossipTask != null) && (!scheduledGossipTask.isCancelled());
+        return gossiperEnabled;
     }
+
+
 
     protected void maybeFinishShadowRound(InetAddress respondent, boolean isInShadowRound)
     {
@@ -1568,6 +1578,15 @@ public class Gossiper implements IFailureDetectionEventListener, GossiperMBean
         states.put(ApplicationState.NET_VERSION, StorageService.instance.valueFactory.networkVersion());
         states.put(ApplicationState.HOST_ID, StorageService.instance.valueFactory.hostId(uuid));
         localState.addApplicationStates(states);
+    }
+
+    /**
+    Returns true if there are no currently scheduled gossip tasks
+     */
+    @VisibleForTesting
+    public boolean isTerminated()
+    {
+        return executor == null || executor.isTerminated();
     }
 
     @VisibleForTesting

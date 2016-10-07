@@ -26,8 +26,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.google.common.util.concurrent.Uninterruptibles;
 import org.junit.*;
 
 import org.apache.cassandra.SchemaLoader;
@@ -84,7 +86,7 @@ public class RemoveTest
     {
         tmd.clearUnsafe();
 
-        // create a ring of 5 nodes
+        // create a ring of 6 nodes
         Util.createInitialRing(ss, partitioner, endpointTokens, keyTokens, hosts, hostIds, 6);
 
         MessagingService.instance().listen();
@@ -98,6 +100,25 @@ public class RemoveTest
     @After
     public void tearDown()
     {
+        VersionedValueFactory valueFactory = new VersionedValueFactory(DatabaseDescriptor.getPartitioner());
+        // Inject a silent shutdown state for node 1 so we don't wait in stopping the Gossiper to broadcast shutdown
+        Gossiper.instance.injectApplicationState(hosts.get(0), ApplicationState.STATUS, valueFactory.hibernate(true));
+
+        Gossiper.instance.stop();
+
+        // Go back to normal for local state
+        Gossiper.instance.injectApplicationState(
+            hosts.get(0), ApplicationState.STATUS,
+            valueFactory.normal(Collections.singleton(endpointTokens.get(0))));
+
+        for (int i = 0; i < 10; i++)
+        {
+            if (Gossiper.instance.isTerminated())
+                break;
+
+            Uninterruptibles.sleepUninterruptibly(1, TimeUnit.SECONDS);
+        }
+
         MessagingService.instance().clearMessageSinks();
         MessagingService.instance().clearCallbacksUnsafe();
         MessagingService.instance().shutdown();
