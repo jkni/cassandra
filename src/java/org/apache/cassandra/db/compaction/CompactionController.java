@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DataTracker;
 import org.apache.cassandra.db.DecoratedKey;
+import org.apache.cassandra.db.DeletionTime;
 import org.apache.cassandra.io.sstable.SSTableReader;
 import org.apache.cassandra.utils.AlwaysPresentFilter;
 
@@ -184,28 +185,87 @@ public class CompactionController implements AutoCloseable
     }
 
     /**
-     * @return the largest timestamp before which it's okay to drop tombstones for the given partition;
-     * i.e., after the maxPurgeableTimestamp there may exist newer data that still needs to be suppressed
-     * in other sstables.  This returns the minimum timestamp for any SSTable that contains this partition and is not
-     * participating in this compaction, or LONG.MAX_VALUE if no such SSTable exists.
+     * @param key
+     * @param markedForDeletionAt
+     * @return whether tombstones marked for deletion at the given time for the given partition are purgeable;
+     * we calculate this by checking whether the deletion time is less than the min timestamp of all SSTables containing
+     * this partition and not participating in the compaction. This means there isn't any data in those sstables that
+     * might still need to be suppressed by a tombstone at this timestamp.
      */
-    public long maxPurgeableTimestamp(DecoratedKey key)
+    public PurgeEvaluator getPurgeEvaluator(DecoratedKey key)
     {
         if (NEVER_PURGE_TOMBSTONES)
-            return Long.MIN_VALUE;
+            return AlwaysFalsePurgeEvaluator.instance;
 
         List<SSTableReader> filteredSSTables = overlappingTree.search(key);
-        long min = Long.MAX_VALUE;
-        for (SSTableReader sstable : filteredSSTables)
+
+        if (filteredSSTables.isEmpty())
         {
-            // if we don't have bloom filter(bf_fp_chance=1.0 or filter file is missing),
-            // we check index file instead.
-            if (sstable.getBloomFilter() instanceof AlwaysPresentFilter && sstable.getPosition(key, SSTableReader.Operator.EQ, false) != null)
-                min = Math.min(min, sstable.getMinTimestamp());
-            else if (sstable.getBloomFilter().isPresent(key.getKey()))
-                min = Math.min(min, sstable.getMinTimestamp());
+            return AlwaysTruePurgeEvaluator.instance;
         }
-        return min;
+        else
+        {
+            long minTimestamp = Long.MAX_VALUE;
+            for (SSTableReader sstable: filteredSSTables)
+            {
+                // if we don't have bloom filter(bf_fp_chance=1.0 or filter file is missing),
+                // we check index file instead.
+                if ((sstable.getBloomFilter() instanceof AlwaysPresentFilter && sstable.getPosition(key, SSTableReader.Operator.EQ, false) != null)
+                    || (sstable.getBloomFilter().isPresent(key.getKey())))
+                    minTimestamp = Math.min(minTimestamp, sstable.getMinTimestamp());
+
+            }
+
+            return new TimestampedPurgeEvaluator(minTimestamp);
+        }
+    }
+
+    interface PurgeEvaluator
+    {
+        public boolean isPurgeable(long time);
+    }
+
+    static class TimestampedPurgeEvaluator implements PurgeEvaluator
+    {
+        private long comparisonTime;
+
+        TimestampedPurgeEvaluator(long comparisonTime)
+        {
+            this.comparisonTime = comparisonTime;
+        }
+
+        public boolean isPurgeable(long time)
+        {
+            return time < comparisonTime;
+        }
+    }
+
+    static class AlwaysTruePurgeEvaluator implements PurgeEvaluator
+    {
+        public static PurgeEvaluator instance = new AlwaysTruePurgeEvaluator();
+
+        private AlwaysTruePurgeEvaluator()
+        {
+        }
+
+        public boolean isPurgeable(long time)
+        {
+            return true;
+        }
+    }
+
+    static class AlwaysFalsePurgeEvaluator implements PurgeEvaluator
+    {
+        public static PurgeEvaluator instance = new AlwaysFalsePurgeEvaluator();
+
+        private AlwaysFalsePurgeEvaluator()
+        {
+        }
+
+        public boolean isPurgeable(long time)
+        {
+            return false;
+        }
     }
 
     public void close()

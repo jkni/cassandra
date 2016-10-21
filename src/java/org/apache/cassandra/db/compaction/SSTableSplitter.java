@@ -91,9 +91,9 @@ public class SSTableSplitter {
         }
 
         @Override
-        public long maxPurgeableTimestamp(DecoratedKey key)
+        public PurgeEvaluator getPurgeEvaluator(DecoratedKey key)
         {
-            return Long.MIN_VALUE;
+            return AlwaysFalsePurgeEvaluator.instance;
         }
     }
 }

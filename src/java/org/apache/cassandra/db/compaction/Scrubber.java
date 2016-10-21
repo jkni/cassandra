@@ -489,9 +489,9 @@ public class Scrubber implements Closeable
         }
 
         @Override
-        public long maxPurgeableTimestamp(DecoratedKey key)
+        public PurgeEvaluator getPurgeEvaluator(DecoratedKey key)
         {
-            return Long.MIN_VALUE;
+            return AlwaysFalsePurgeEvaluator.instance;
         }
     }
 

@@ -1301,7 +1301,7 @@ public class CompactionManager implements CompactionManagerMBean
         }
 
         @Override
-        public long maxPurgeableTimestamp(DecoratedKey key)
+        public PurgeEvaluator getPurgeEvaluator(DecoratedKey key)
         {
             /*
              * The main reason we always purge is that including gcable tombstone would mean that the
@@ -1314,7 +1314,7 @@ public class CompactionManager implements CompactionManagerMBean
              * a tombstone that could shadow a column in another sstable, but this is doubly not a concern
              * since validation compaction is read-only.
              */
-            return Long.MAX_VALUE;
+            return AlwaysTruePurgeEvaluator.instance;
         }
     }
 
