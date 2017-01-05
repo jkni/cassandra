@@ -96,6 +96,7 @@ public class CustomTThreadPoolServer extends TServer
             return;
         }
 
+        boolean old_stopped = stopped;
         stopped = false;
         while (!stopped)
         {
@@ -120,6 +121,7 @@ public class CustomTThreadPoolServer extends TServer
                 if (!stopped)
                 {
                     logger.warn("Transport error occurred during acceptance of message.", ttx);
+                    logger.warn("Old stopped {}", old_stopped);
                 }
             }
             catch (RejectedExecutionException e)
