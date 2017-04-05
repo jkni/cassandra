@@ -547,8 +547,6 @@ public abstract class PartitionIterator implements Iterator<Row>
                         return false;
                     depth--;
                     clusteringComponents[depth].poll();
-                    if (++currentRow[depth] > lastRow[depth])
-                        return false;
                     continue;
                 }
 
@@ -612,15 +610,22 @@ public abstract class PartitionIterator implements Iterator<Row>
             return Pair.create(position, bound);
         }
 
+        long parentSeed(int depth)
+        {
+            return depth == 0 ? idseed : clusteringSeeds[depth - 1];
+        }
+
         // generate the clustering components for the provided depth; requires preceding components
         // to have been generated and their seeds populated into clusteringSeeds
         void fill(int depth)
         {
-            long seed = depth == 0 ? idseed : clusteringSeeds[depth - 1];
+            if (depth != 0)
+                clusteringSeeds[depth-1] = seed(clusteringComponents[depth-1].peek(), generator.clusteringComponents.get(depth).type, parentSeed(depth-1));
+
+            long seed = parentSeed(depth);
             Generator gen = generator.clusteringComponents.get(depth);
             gen.setSeed(seed);
             fill(clusteringComponents[depth], (int) gen.clusteringDistribution.next(), gen);
-            clusteringSeeds[depth] = seed(clusteringComponents[depth].peek(), generator.clusteringComponents.get(depth).type, seed);
         }
 
         // generate the clustering components into the queue
