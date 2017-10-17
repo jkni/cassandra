@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.cassandra.db.compaction.OperationType;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.sstable.format.SSTableReader.UniqueIdentifier;
+import org.apache.cassandra.utils.concurrent.Refs;
 import org.apache.cassandra.utils.concurrent.Transactional;
 
 import static com.google.common.base.Functions.compose;
@@ -108,6 +109,8 @@ public class LifecycleTransaction extends Transactional.AbstractTransactional
     // changes that are pending
     private final State staged = new State();
 
+    private Refs<SSTableReader> originalCompactingRefs;
+
     /**
      * construct a Transaction for use in an offline operation
      */
@@ -132,6 +135,8 @@ public class LifecycleTransaction extends Transactional.AbstractTransactional
     {
         this.tracker = tracker;
         this.operationType = operationType;
+        this.originalCompactingRefs = Refs.tryRef(readers);
+
         for (SSTableReader reader : readers)
         {
             originals.add(reader);
@@ -207,7 +212,8 @@ public class LifecycleTransaction extends Transactional.AbstractTransactional
     @Override
     protected Throwable doPostCleanup(Throwable accumulate)
     {
-        return unmarkCompacting(marked, accumulate);
+        accumulate = unmarkCompacting(marked, accumulate);
+        return originalCompactingRefs.release(accumulate);
     }
 
     public boolean isOffline()
@@ -398,6 +404,7 @@ public class LifecycleTransaction extends Transactional.AbstractTransactional
         marked.remove(cancel);
         identities.remove(cancel.instanceId);
         maybeFail(unmarkCompacting(singleton(cancel), null));
+        originalCompactingRefs.release(cancel);
     }
 
     /**
