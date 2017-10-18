@@ -985,7 +985,8 @@ public abstract class SSTableReader extends SSTable implements SelfRefCounted<SS
      *
      * @return the cloned reader. That reader is set as a replacement by the method.
      */
-    private SSTableReader cloneAndReplace(DecoratedKey newFirst, OpenReason reason)
+    @VisibleForTesting
+    public SSTableReader cloneAndReplace(DecoratedKey newFirst, OpenReason reason)
     {
         return cloneAndReplace(newFirst, reason, indexSummary.sharedCopy());
     }

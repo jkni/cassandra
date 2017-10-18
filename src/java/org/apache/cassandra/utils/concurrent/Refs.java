@@ -69,6 +69,22 @@ public final class Refs<T extends RefCounted<T>> extends AbstractCollection<T> i
     }
 
     /**
+     * Release ALL of the references held by this Refs collection, accumulating exceptions
+     */
+    public Throwable release(Throwable accumulate)
+    {
+        try
+        {
+            accumulate = release(references.values(), accumulate);
+        }
+        finally
+        {
+            references.clear();
+        }
+        return accumulate;
+    }
+
+    /**
      * See {@link Refs#release()}
      */
     public void close()

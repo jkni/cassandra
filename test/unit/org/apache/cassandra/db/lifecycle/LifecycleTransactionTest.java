@@ -138,6 +138,22 @@ public class LifecycleTransactionTest extends AbstractTransactionalTest
     }
 
     @Test
+    public void testReferencingCanonicalTablesDuringLifecycleTransaction()
+    {
+        ColumnFamilyStore cfs = MockSchema.newCFS();
+        Tracker tracker = cfs.getTracker();
+        SSTableReader[] readers = readersArray(0, 1, cfs);
+        SSTableReader[] readers2 = readersArray(0, 2, cfs);
+        tracker.addInitialSSTables(copyOf(readers));
+        LifecycleTransaction txn = tracker.tryModify(copyOf(readers), OperationType.UNKNOWN);
+        txn.update(readers2[0], true);
+        txn.update(readers2[1].cloneAndReplace(readers2[1].first, SSTableReader.OpenReason.EARLY), false);
+        txn.checkpoint();
+        // this will spin until the test times out if we can't reference them
+        cfs.selectAndReference(View.selectFunction(SSTableSet.CANONICAL));
+    }
+
+    @Test
     public void testCancellation()
     {
         ColumnFamilyStore cfs = MockSchema.newCFS();
